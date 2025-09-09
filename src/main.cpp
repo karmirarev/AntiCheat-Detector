@@ -17,6 +17,8 @@ int main() {
         "ghidra.exe"
     };
 
+    std::cout << "Anti-cheat detector started. Monitoring " << threatList.size() << " threats.\n" << std::endl;
+
     // make it scan continuously
     while (true) {
         std::cout << "Ctrl + C to stop the scanning" << std::endl;
@@ -35,7 +37,7 @@ int main() {
             for (const std::string& threat : threatList) {
                 if (processName == threat) {
                     std::cout << "THREAT DETECTED: " << processName 
-                    << "(PID: " << process.th32ProcessID << ")" << std::endl;
+                              << " (PID: " << process.th32ProcessID << ")" << std::endl;
                     break;
                 }
             }
