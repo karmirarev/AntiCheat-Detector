@@ -34,7 +34,8 @@ int main() {
 
             for (const std::string& threat : threatList) {
                 if (processName == threat) {
-                    std::cout << "THREAT DETECTED: " << processName << std::endl;
+                    std::cout << "THREAT DETECTED: " << processName 
+                    << "(PID: " << process.th32ProcessID << ")" << std::endl;
                     break;
                 }
             }
