@@ -26,30 +26,38 @@ DWORD findAMongUsProcess() {
     return 0; 
 }
 
-void checkSusHandles(DWORD targetProcessID, const std::string& processName) {
-    // check all running processes for handles
-    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
-    PROCESSENTRY32 process;
-    process.dwSize = sizeof(process);
+void checkSuspiciousDLLs(DWORD targetProcessID, const std::string& processName) {
+    HANDLE hModuleSnap = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE, targetProcessID);
+    if (hModuleSnap == INVALID_HANDLE_VALUE) return;
+
+    MODULEENTRY32 moduleEntry;
+    moduleEntry.dwSize = sizeof(moduleEntry);
     
-    Process32First(snapshot, &process);
+    std::cout << "checking DLLs loaded in " << processName << ":" << std::endl;
+    
+    Module32First(hModuleSnap, &moduleEntry);
     do {
-        if (process.th32ProcessID == targetProcessID) continue;
+        std::string moduleName = moduleEntry.szModule;
+        std::string modulePath = moduleEntry.szExePath;
         
-        HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, process.th32ProcessID);
-        if (hProcess != NULL) {
+        // Check for suspicious DLL names
+        if (moduleName.find("cheat") != std::string::npos ||
+            moduleName.find("hack") != std::string::npos ||
+            moduleName.find("inject") != std::string::npos ||
+            modulePath.find("temp") != std::string::npos ||
+            moduleName.find("speedhack") != std::string::npos ||
+            moduleName.find("trainer") != std::string::npos) {
             
-            HANDLE hTarget = OpenProcess(PROCESS_VM_READ | PROCESS_VM_WRITE, FALSE, targetProcessID);
-            if (hTarget != NULL) {
-                std::cout << "MEMORY ACCESS DETECTED: " << process.szExeFile 
-                          << " (PID: " << process.th32ProcessID << ") accessing " << processName << std::endl;
-                CloseHandle(hTarget);
-            }
-            CloseHandle(hProcess);
+            std::cout << "SUSPICIOUS DLL: " << moduleName 
+                      << " (" << modulePath << ")" << std::endl;
         }
-    } while (Process32Next(snapshot, &process));
+        
+        // show all DLLs 
+        // std::cout << "  DLL: " << moduleName << std::endl;
+        
+    } while (Module32Next(hModuleSnap, &moduleEntry));
     
-    CloseHandle(snapshot);
+    CloseHandle(hModuleSnap);
 }
 
 int main() {
@@ -74,7 +82,7 @@ int main() {
         // detect among us running
         DWORD amongUsID = findAMongUsProcess();
         if (amongUsID != 0) {
-            checkSusHandles(amongUsID, "Among Us.exe");
+            checkSuspiciousDLLs(amongUsID, "Among Us.exe");
         }
 
         // container of info on each process
