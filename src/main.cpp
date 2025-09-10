@@ -5,6 +5,52 @@
 #include <thread>
 #include <chrono>
 #include <vector>
+#include <psapi.h>
+
+DWORD findAMongUsProcess() {
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    PROCESSENTRY32 process;
+    process.dwSize = sizeof(process);
+    
+    Process32First(snapshot, &process);
+    do {
+        std::string processName = process.szExeFile;
+        if (processName == "Among Us.exe") {
+            CloseHandle(snapshot);
+            std::cout << "found AmongUs process (PID: " << process.th32ProcessID << ")" << std::endl;
+            return process.th32ProcessID;
+        }
+    } while (Process32Next(snapshot, &process));
+    
+    CloseHandle(snapshot);
+    return 0; 
+}
+
+void checkSusHandles(DWORD targetProcessID, const std::string& processName) {
+    // check all running processes for handles
+    HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+    PROCESSENTRY32 process;
+    process.dwSize = sizeof(process);
+    
+    Process32First(snapshot, &process);
+    do {
+        if (process.th32ProcessID == targetProcessID) continue;
+        
+        HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, process.th32ProcessID);
+        if (hProcess != NULL) {
+            
+            HANDLE hTarget = OpenProcess(PROCESS_VM_READ | PROCESS_VM_WRITE, FALSE, targetProcessID);
+            if (hTarget != NULL) {
+                std::cout << "MEMORY ACCESS DETECTED: " << process.szExeFile 
+                          << " (PID: " << process.th32ProcessID << ") accessing " << processName << std::endl;
+                CloseHandle(hTarget);
+            }
+            CloseHandle(hProcess);
+        }
+    } while (Process32Next(snapshot, &process));
+    
+    CloseHandle(snapshot);
+}
 
 int main() {
     // create list of threats 
@@ -24,6 +70,12 @@ int main() {
         std::cout << "Ctrl + C to stop the scanning" << std::endl;
         // list of all running processes 
         HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
+
+        // detect among us running
+        DWORD amongUsID = findAMongUsProcess();
+        if (amongUsID != 0) {
+            checkSusHandles(amongUsID, "Among Us.exe");
+        }
 
         // container of info on each process
         PROCESSENTRY32 process;
